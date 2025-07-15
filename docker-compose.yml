@@ -1,0 +1,9 @@
+services:
+  genesis:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    volumes:
+      - ./data:/app/data
+    environment:
+      COUNTRY: ""          # "" = run all, or set to mx / cr

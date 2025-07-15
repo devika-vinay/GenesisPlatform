@@ -1,0 +1,27 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Editor & OS
+.DS_Store
+.idea/
+.vscode/
+
+# Data inputs
+data/raw/**/*.zip
+tmp/
+*.parquet
+*.csv
+
+# Data outputs
+data/processed/
+*.sqlite
+
+# Notebooks
+*.ipynb_checkpoints/
