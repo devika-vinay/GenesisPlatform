@@ -1,3 +1,10 @@
 *.pbf filter=lfs diff=lfs merge=lfs -text
 *.zip filter=lfs diff=lfs merge=lfs -text
 *.parquet filter=lfs diff=lfs merge=lfs -text
+# --- Force Unix LF for all shell scripts -----------------
+*.sh text eol=lf
+
+# (optional) also force LF for Python, Dockerfiles, etc.
+*.py  text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
