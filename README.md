@@ -2,28 +2,48 @@
 
 Community‑based freight & moving logistics platform (pilot: Mexico, Costa Rica, Colombia).
 
-## Quick‑start
+## 1. Set‑up
 
-1. Clone repository
-2. Download and spin up docker
-3. Stop & remove any previous containers/images docker compose down --remove-orphans --volumes
-4. Build the genesis image from scratch docker compose build --no-cache genesis
-5. Run all countries docker compose up genesis
-6. Run specific countries COUNTRY=mx docker compose up genesis
+### Prerequisites (once per machine)
+1. Git
+2. Docker Desktop
+3. Raw data files:
+    - mx: gtfs.zip | semovi-oaxaca-mx.zip
+    - co: Bogota1.zip | Bogota2.zip | colombia-latest.osm.pbf
 
+## 2. Run pipeline
+1. Start Docker Desktop 
 
-```bash
-git clone <your-fork-url> genesis-platform
-cd genesis-platform
+2. Clone repository
+    - https://github.com/devika-vinay/GenesisPlatform.git
 
-# Install deps (Poetry)
-poetry install
+3. Stop & remove any previous containers/images 
+    - docker compose down --remove-orphans --volumes
 
-# Spin up local services
-docker compose up -d
+4. Build the genesis image from scratch 
+    - docker compose build --no-cache genesis
 
-# Run tests
-pytest -q
-```
+5. Build genesis image with previous cache
+    - docker compose build genesis
 
-More docs are under `docs/`.
+6. Run all countries 
+    - docker compose up genesis
+
+7. Run specific countries 
+    - COUNTRY=mx docker compose up genesis
+
+## 3. Git Workflow
+1. Create a feature branch
+    - git checkout -b feature/your-topic
+
+2. Stage changes
+    - git add path/to/file.py
+
+3. Commit
+    - git commit -m "Meaningful message"
+
+4. Push changes and raise PR
+    - git push origin <branch name>
+
+## 4. Note
+1. Please add any new package and exact version to requirements.txt
