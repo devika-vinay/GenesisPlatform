@@ -2,6 +2,7 @@
 
 ## 1.Folder Layout & Responsibilities
 
+```text
 genesis-platform/
 ├── data/
 │ ├── raw/ # Not committed to repo
@@ -29,6 +30,7 @@ genesis-platform/
 
 ## 2.High‑Level Flow
 
+```text
 Dockerfile      :   Set of instructions used to build a Docker image including defining start point
      |
 entrypoint.sh   :   Sets COUNTRY env → decides which pipelines run
