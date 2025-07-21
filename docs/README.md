@@ -1,6 +1,6 @@
 # GÉNESIS Data Pipeline – Architecture & Contributor Guide
 
-## 1.Folder Layout & Responsibilities
+## 1. Folder Layout & Responsibilities
 
 ```text
 genesis-platform/
@@ -26,9 +26,9 @@ genesis-platform/
 ├── scripts/run_etl.py # CLI wrapper used by entrypoint
 ├── requirements.txt # All Python dependencies (Docker builds from this)
 └── docker-compose.yml # Build/run “genesis” service
+```
 
-
-## 2.High‑Level Flow
+## 2. High‑Level Flow
 
 ```text
 Dockerfile      :   Set of instructions used to build a Docker image including defining start point
@@ -44,5 +44,7 @@ process_helper.py : Defines logic for common functionality like extraction and o
 <c>_preprocess.py : Defines country specific filtering logic
      │
 data/processed/<c>.csv: Output artifacts
+```
+
 
 
