@@ -70,7 +70,7 @@ Our scripts do five things end‑to‑end:
 5. Simulate 500 synthetic bookings per city so we can test the platform before we have real customers.
 ```
 
-### Folder layout 
+### Folder Layout
 ```
 We've kept the folder structure as modular as possible because:
 1. Separating raw, processed, and code means you can delete tmp/ anytime without losing data
@@ -109,7 +109,7 @@ More:
 https://docs.docker.com/engine/swarm/secrets/
 ```
 
-### Maintenance
+### Maintenance
 ```
 1. Drop NewCity.zip or newcountry-latest.osm.pbf in data/raw/<country code>/
 2. Copy pipelines/mx_preprocess.py → new_preprocess.py, adapt logic.
