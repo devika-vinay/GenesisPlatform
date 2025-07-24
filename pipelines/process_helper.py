@@ -1,28 +1,28 @@
+# ---------------------------------------------------------------------
+# Shared utilities
+# 1. extract_gtfs_feeds()
+#    • Unzips one or more GTFS feeds into tmp/<country>/<city>/.
+#
+# 2. generate_bookings()
+#    • Creates synthetic jobs for a city.
+#    • Uses classify_truck info (if present) to pick the smallest
+#      vehicle that can serve both stops.
+#    • Falls back to "small" when a stop has no class tag 
+# ---------------------------------------------------------------------
+
 from pathlib import Path
 import zipfile
 import os, random, pandas as pd
 from datetime import datetime, timedelta
 
 
-
 def extract_gtfs_feeds(feeds: dict[str, str], raw_root: Path, work_root: Path) -> None:
-    """
-    Extract GTFS zip files into per-city folders.
 
-    Parameters
-    ----------
-    feeds : dict
-        {"cdmx": "gtfs.zip", "oaxaca": "semovi-oaxaca-mx.zip", ...}
-    raw_root : Path
-        Folder where the zip files live, e.g. data/raw/mx
-    work_root : Path
-        Scratch folder to unzip into, e.g. tmp/mx
-    """
     work_root.mkdir(parents=True, exist_ok=True)
 
     for city, zip_name in feeds.items():
-        zip_path = raw_root / zip_name
-        city_dir = work_root / city
+        zip_path = raw_root / zip_name          # full path to archive
+        city_dir = work_root / city             # where we will unzip
 
         if not zip_path.exists():
             print(f"{zip_name} not found in {raw_root}")
@@ -36,12 +36,14 @@ def extract_gtfs_feeds(feeds: dict[str, str], raw_root: Path, work_root: Path) -
         print("   Files:", ", ".join(os.listdir(city_dir)))
 
 
-MOVE_SIZES = ["small", "medium", "large"]
-TRUCK_PRIORITY = ["small", "medium", "large"]   
-NUM_BOOKINGS = 500
+
+MOVE_SIZES = ["small", "medium", "large"]          
+TRUCK_PRIORITY = ["small", "medium", "large"]      
+NUM_BOOKINGS = 500 # Number of synthetic bookings to be created
+
 
 def _least_restrictive(pickup_cls: str, drop_cls: str) -> str:
-    """Return the smallest truck class that can serve both stops."""
+    # Return the smallest truck class that can serve both stops.
     try:
         i = TRUCK_PRIORITY.index(pickup_cls)
         j = TRUCK_PRIORITY.index(drop_cls)
@@ -52,33 +54,24 @@ def _least_restrictive(pickup_cls: str, drop_cls: str) -> str:
 
 def generate_bookings(city_dir: Path, city_tag: str,
                       num_bookings: int = NUM_BOOKINGS) -> pd.DataFrame:
-    """
-    Simulate *n* booking requests for one city, now truck‑aware.
-
-    Parameters
-    ----------
-    city_dir : Path
-        Folder containing stops_truck_only.csv
-    city_tag : str
-        Short string like 'bog', 'baq', used in booking_id prefix
-    n : int
-        Number of bookings to create
-    """
-    import random
-    from datetime import datetime, timedelta
-
+    
     stops_path = city_dir / "stops_truck_only.csv"
     if not stops_path.exists():
         raise FileNotFoundError(f"{stops_path} not found")
 
     df_stops = pd.read_csv(stops_path)
-    stop_ids   = df_stops["stop_id"].tolist()
-    stop_to_cls = dict(zip(df_stops["stop_id"], df_stops["classify_truck"]))
+    stop_ids = df_stops["stop_id"].tolist()
+
+    if "classify_truck" in df_stops.columns:
+        stop_to_cls = dict(zip(df_stops["stop_id"], df_stops["classify_truck"]))
+    else:
+        stop_to_cls = {sid: "small" for sid in stop_ids}
 
     if len(stop_ids) < 2:
         print(f"{city_tag.upper()}: Not enough stops to generate bookings.")
         return pd.DataFrame()
 
+    # Random timestamp helper 
     def rand_time():
         start = datetime(2025, 7, 1)
         end   = datetime(2025, 7, 31)
@@ -88,6 +81,7 @@ def generate_bookings(city_dir: Path, city_tag: str,
             minutes=random.randint(0, 24 * 60)
         )).strftime("%Y-%m-%d %H:%M")
 
+    # Generate rows 
     bookings = []
     for i in range(num_bookings):
         pickup, dropoff = random.sample(stop_ids, 2)
@@ -107,9 +101,9 @@ def generate_bookings(city_dir: Path, city_tag: str,
         }
         bookings.append(booking)
 
+    # Persist + return 
     out_csv = city_dir / "booking_requests.csv"
     pd.DataFrame(bookings).to_csv(out_csv, index=False)
 
     print(f"{city_tag.upper()}: Created {len(bookings)} bookings → {out_csv}")
     return pd.DataFrame(bookings)
-

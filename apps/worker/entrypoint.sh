@@ -1,16 +1,18 @@
 #!/usr/bin/env sh
-set -e
+# --------------------------------------------------------------------
+# Acts as start‑button for the Docker container
 
-# If COUNTRY isn't set, run *all* known pipelines
+set -e  # abort on first error
+
 if [ -z "$COUNTRY" ]; then
   echo "COUNTRY env not provided – running all pipelines"
-  python scripts/run_etl.py mx
-  python scripts/run_etl.py co
-  python scripts/run_etl.py cr
+  python scripts/run_etl.py mx   # 🇲🇽  Mexico
+  python scripts/run_etl.py co   # 🇨🇴  Colombia
+  python scripts/run_etl.py cr   # 🇨🇷  Costa Rica
+
 else
   echo "Running pipeline for $COUNTRY"
   python scripts/run_etl.py "$COUNTRY"
 fi
 
-echo "ETL finished"
-
+echo "ETL finished" 
