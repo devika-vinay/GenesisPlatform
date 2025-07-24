@@ -37,56 +37,79 @@ def extract_gtfs_feeds(feeds: dict[str, str], raw_root: Path, work_root: Path) -
 
 
 MOVE_SIZES = ["small", "medium", "large"]
+TRUCK_PRIORITY = ["small", "medium", "large"]   
 NUM_BOOKINGS = 500
 
-def _random_date(month: str = "2025-07") -> str:
-    """Return a random YYYY-MM-DD HH:MM string inside the given month."""
-    start = datetime.fromisoformat(f"{month}-01")
-    end   = (start.replace(day=28) + timedelta(days=4)).replace(day=1)  # 1st of next month
-    delta = end - start
-    return (start + timedelta(days=random.randint(0, delta.days-1),
-                              minutes=random.randint(0, 1439))
-           ).strftime("%Y-%m-%d %H:%M")
+def _least_restrictive(pickup_cls: str, drop_cls: str) -> str:
+    """Return the smallest truck class that can serve both stops."""
+    try:
+        i = TRUCK_PRIORITY.index(pickup_cls)
+        j = TRUCK_PRIORITY.index(drop_cls)
+        return TRUCK_PRIORITY[min(i, j)]
+    except ValueError:          # unknown tag → default to small
+        return "small"
+    
 
-def generate_bookings(city_dir: Path,
-                             city_code: str,
-                             num_bookings: int = NUM_BOOKINGS,
-                             month: str = "2025-07") -> pd.DataFrame:
+def generate_bookings(city_dir: Path, city_tag: str,
+                      num_bookings: int = NUM_BOOKINGS) -> pd.DataFrame:
     """
-      • reads <city_dir>/stops_truck_only.csv (must have stop_id column)
-      • builds <city_dir>/booking_requests.csv
-      • returns DataFrame of the simulated bookings
+    Simulate *n* booking requests for one city, now truck‑aware.
+
+    Parameters
+    ----------
+    city_dir : Path
+        Folder containing stops_truck_only.csv
+    city_tag : str
+        Short string like 'bog', 'baq', used in booking_id prefix
+    n : int
+        Number of bookings to create
     """
-    stops_csv = city_dir / "stops_truck_only.csv"
-    if not stops_csv.exists():
-        print(f"{city_code.upper()}: Truck stop file not found.")
-        return pd.DataFrame()
+    import random
+    from datetime import datetime, timedelta
 
-    df_stops = pd.read_csv(stops_csv)
-    if "stop_id" not in df_stops.columns:
-        print(f"{city_code.upper()}: stop_id column missing.")
-        return pd.DataFrame()
+    stops_path = city_dir / "stops_truck_only.csv"
+    if not stops_path.exists():
+        raise FileNotFoundError(f"{stops_path} not found")
 
-    stop_ids = df_stops["stop_id"].dropna().unique().tolist()
+    df_stops = pd.read_csv(stops_path)
+    stop_ids   = df_stops["stop_id"].tolist()
+    stop_to_cls = dict(zip(df_stops["stop_id"], df_stops["classify_truck"]))
+
     if len(stop_ids) < 2:
-        print(f"{city_code.upper()}: Not enough stops to generate bookings.")
+        print(f"{city_tag.upper()}: Not enough stops to generate bookings.")
         return pd.DataFrame()
+
+    def rand_time():
+        start = datetime(2025, 7, 1)
+        end   = datetime(2025, 7, 31)
+        delta = end - start
+        return (start + timedelta(
+            days=random.randint(0, delta.days),
+            minutes=random.randint(0, 24 * 60)
+        )).strftime("%Y-%m-%d %H:%M")
 
     bookings = []
     for i in range(num_bookings):
         pickup, dropoff = random.sample(stop_ids, 2)
-        bookings.append({
-            "booking_id": f"{city_code.upper()}_BKG_{i+1:04d}",
-            "pickup_stop_id": pickup,
+        pickup_cls  = stop_to_cls.get(pickup, "small")
+        dropoff_cls = stop_to_cls.get(dropoff, "small")
+
+        booking = {
+            "booking_id": f"{city_tag.upper()}_BKG_{i+1:04d}",
+            "pickup_stop_id":  pickup,
             "dropoff_stop_id": dropoff,
-            "requested_time": _random_date(month),
+            "requested_time":  rand_time(),
             "move_size": random.choice(MOVE_SIZES),
-            "vehicle_type": "truck",
-            "city": city_code,
-        })
+            "pickup_truck_type":  pickup_cls,
+            "dropoff_truck_type": dropoff_cls,
+            "required_truck_type": _least_restrictive(pickup_cls, dropoff_cls),
+            "city": city_tag,
+        }
+        bookings.append(booking)
 
     out_csv = city_dir / "booking_requests.csv"
     pd.DataFrame(bookings).to_csv(out_csv, index=False)
 
-    print(f"{city_code.upper()}: Created {len(bookings)} bookings → {out_csv}")
+    print(f"{city_tag.upper()}: Created {len(bookings)} bookings → {out_csv}")
     return pd.DataFrame(bookings)
+
