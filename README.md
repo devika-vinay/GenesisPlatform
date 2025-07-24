@@ -69,6 +69,7 @@ Our scripts do five things end‑to‑end:
 4. Load the results into tidy CSVs for analysis.
 5. Simulate 500 synthetic bookings per city so we can test the platform before we have real customers.
 ```
+
 ### Folder layout 
 ```
 We've kept the folder structure as modular as possible because:
@@ -76,12 +77,14 @@ We've kept the folder structure as modular as possible because:
 2. Large raw files live outside Git (so the repo stays <100 MB)
 3. Each pipeline is only responsible for its own country.
 ```
+
 ### Why requirements.txt
 ```
 Python projects need extra libraries (GeoPandas, PyROSM, …). Requirements.txt acts like a grocery list. It makes sure we install the exact versions, all laptops or systems run the same code
 
 Further reading: https://pip.pypa.io/en/stable/user_guide/#requirements-files
 ```
+
 ### Why Docker
 ```
 A Docker image is like a zip snapshot of an entire computer:
@@ -97,6 +100,7 @@ Helpful links:
 https://www.docker.com/resources/what-container/
 Docker Desktop download – https://docs.docker.com/desktop/
 ```
+
 ### Why environments & Docker secrets?
 ```
 Usernames, API keys, etc. should never live in code. They can be passed at run‑time.
