@@ -6,6 +6,7 @@ if [ -z "$COUNTRY" ]; then
   echo "COUNTRY env not provided – running all pipelines"
   python scripts/run_etl.py mx
   python scripts/run_etl.py co
+  python scripts/run_etl.py cr
 else
   echo "Running pipeline for $COUNTRY"
   python scripts/run_etl.py "$COUNTRY"

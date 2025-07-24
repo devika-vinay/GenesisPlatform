@@ -8,19 +8,26 @@ from .etl_base import ETLPipeline
 from .process_helper import extract_gtfs_feeds, generate_bookings
 
 class ColombiaPipeline(ETLPipeline):
-    feeds = {"bogota1": "Bogota1.zip", "bogota2": "Bogota2.zip"}
+    CITY_META = {
+    # code           zips                             (W,   S,    E,    N)     tag
+    "bogota":       (["bogota1.zip", "bogota2.zip"],  (-74.25, 4.47, -73.99, 4.84), "bog"),
+    "barranquilla": (["Barranquilla.zip"],            (-74.95, 10.84, -74.69, 11.13), "baq"),
+    "cali":         (["Cali.zip"],                    (-76.62, 3.31, -76.43, 3.57),  "cali"),
+    "medellin":     (["Medellin.zip"],                (-75.73, 6.13, -75.48, 6.39),  "med"),
+}
 
     RAW_PBF   = Path("data/raw/co/colombia-latest.osm.pbf")
-    CLIP_PBF  = Path("data/raw/co/bogota_clip.osm.pbf")
-    CACHE_PAR = Path("data/raw/co/bogota_roads.parquet")
 
-    BBOX  = (-74.25, 4.47, -73.99, 4.84)            # W S E N
     DROP  = {"stop_code","zone_id","stop_url","parent_station",
              "stop_desc","stop_timezone","level_id","platform_code"}
 
     TRUCK_CLASSES = {"small","medium","large"}
-    HIGHWAYS      = ["motorway","trunk","primary","secondary","tertiary",
-                     "unclassified","residential","service"]
+    HIGHWAYS = [
+    "trunk","trunk_link","primary","primary_link",
+    "secondary","secondary_link","tertiary","tertiary_link",
+    "services","residential","service","unclassified","track",
+    "turning_circle","turning_loop","passing_place","rest_area"]
+
 
     def __init__(self, cc: str = "co"):
         super().__init__(cc)
@@ -28,72 +35,110 @@ class ColombiaPipeline(ETLPipeline):
         self.tmp.mkdir(parents=True, exist_ok=True)
 
     def extract(self) -> None:
-        extract_gtfs_feeds(self.feeds, Path("data/raw/co"), self.tmp)
+        raw_root = Path("data/raw/co")
+        # Unzip GTFS or copy raw stops
+        for code, (zip_list, bbox, _) in self.CITY_META.items():
+            for zip_name in zip_list:
+                extract_gtfs_feeds({code: zip_name}, raw_root, self.tmp)
 
-        if not self.CLIP_PBF.exists():
-            subprocess.run(
-                ["osmium","extract","--bbox", ",".join(map(str, self.BBOX)),
-                 str(self.RAW_PBF), "-o", str(self.CLIP_PBF)],
-                check=True
-            )
+            # Build city‑specific clip if missing
+            clip = self.tmp / f"{code}_clip.osm.pbf"
+            if not clip.exists():
+                subprocess.run(
+                    ["osmium", "extract",
+                    "--bbox", ",".join(map(str, bbox)),
+                    str(self.RAW_PBF), "-o", str(clip)],
+                    check=True)
 
     def transform(self, _) -> pd.DataFrame:
-        # 1) GTFS stops -------------------------------------------------
-        stops_files = list(self.tmp.rglob("**/stops.txt")) + \
-                      list(self.tmp.rglob("**/stops-*.txt"))
-        if not stops_files:
-            raise FileNotFoundError("No stops.txt found in extracted GTFS")
+        all_booking_frames = []
 
-        df = pd.concat(map(pd.read_csv, stops_files), ignore_index=True)
-        df = df.drop(columns=[c for c in self.DROP if c in df.columns])
+        for code, (_, bbox, tag) in self.CITY_META.items():
+            city_dir = self.tmp / code
 
-        gdf = gpd.GeoDataFrame(
-            df,
-            geometry=[Point(xy) for xy in zip(df.stop_lon, df.stop_lat)],
-            crs="EPSG:4326"
-        ).to_crs(3857)
-        gdf["geometry"] = gdf.buffer(70).to_crs(4326)
+            # Gather stops
+            stops_files = list(city_dir.rglob("**/stops.txt")) + \
+                          list(city_dir.rglob("**/stops-*.txt"))
+            if not stops_files:
+                print(f"{code.upper()}: no stops.txt – skipped")
+                continue
+            
+            df = pd.concat(map(pd.read_csv, stops_files), ignore_index=True)
+            df = df.drop(columns=[c for c in self.DROP if c in df.columns])
 
-        # 2) Bogotá roads (cached) -------------------------------------
-        if self.CACHE_PAR.exists():
-            roads = gpd.read_parquet(self.CACHE_PAR)
-        else:
-            roads = OSM(str(self.CLIP_PBF)).get_data_by_custom_criteria(
-                custom_filter={"highway": True},
-                filter_type="keep",
-                keep_nodes=False,
-                extra_attributes=["access","hgv","maxweight"]
-            )
-            roads.to_parquet(self.CACHE_PAR)
+            gdf = gpd.GeoDataFrame(
+                df, geometry=[Point(xy) for xy in zip(df.stop_lon, df.stop_lat)],
+                crs="EPSG:4326"
+            ).to_crs(3857)
+            gdf["geometry"] = gdf.buffer(70).to_crs(4326)
 
-        roads = roads.to_crs("EPSG:4326")
-        roads = roads[roads["highway"].isin(self.HIGHWAYS)]
+            # Load / build road cache for this city
+            clip = self.tmp / f"{code}_clip.osm.pbf"
+            cache = self.tmp / f"{code}_roads.parquet"
 
-        # classify truck access
-        def classify(r):
-            acc = str(r.get("access","")).lower()
-            hgv = str(r.get("hgv","")).lower()
-            if acc in {"no","private","agricultural"} or hgv == "no":
+            if cache.exists():
+                roads = gpd.read_parquet(cache)
+            else:
+                roads = OSM(str(clip)).get_data_by_custom_criteria(
+                            custom_filter={"highway": True},
+                            filter_type="keep",
+                            keep_nodes=False,
+                            extra_attributes=["access","hgv","maxweight"])
+                roads.to_parquet(cache)
+
+            roads = roads.to_crs("EPSG:4326")
+            roads = roads[roads["highway"].isin(self.HIGHWAYS)]
+
+            # Classify truck access
+            def classify(r):
+                acc = str(r.get("access", "")).lower()
+                hgv = str(r.get("hgv", "")).lower()
+                acc = str(r.get("access", "")).lower()
+                hgv = str(r.get("hgv", "")).lower()
+                # Explicit bans
+                if acc in {"no", "private", "agricultural"} or hgv == "no":
+                    return "forbidden"
+
+                # Maxweight
+                try:
+                    w = float(str(r.get("maxweight", "")).lower().replace("t", ""))
+                    return "small" if w <= 3.5 else "medium" if w <= 7.5 else "large"
+                except (ValueError, TypeError):
+                    pass
+
+                # Infer from highway tag
+                hw = str(r.get("highway", "")).lower()
+
+                if hw in {"trunk", "trunk_link", "primary", "primary_link"}:
+                    return "large"
+                if hw in {"secondary", "secondary_link", "tertiary", "tertiary_link", "services"}:
+                    return "medium"
+                if hw in {"residential", "service", "track",
+                        "turning_circle", "turning_loop", "passing_place", "rest_area"}:
+                    return "small"
+
+                # Non‑drivable → forbidden
                 return "forbidden"
-            try:
-                w = float(str(r.get("maxweight","")).lower().replace("t",""))
-                return "small" if w<=3.5 else "medium" if w<=7.5 else "large"
-            except:
-                return "unknown"
-        roads["classify_truck"] = roads.apply(classify, axis=1)
 
-        # 3) spatial join ---------------------------------------------
-        joined = gpd.sjoin(gdf, roads[["geometry","classify_truck"]],
-                           predicate="intersects", how="left")
-        filtered = (joined[joined["classify_truck"].isin(self.TRUCK_CLASSES)]
-                    .drop_duplicates("stop_id"))
+            roads["classify_truck"] = roads.apply(classify, axis=1)
 
-        (self.tmp / "stops_truck_only.csv").write_bytes(
-            filtered.to_csv(index=False).encode()
-        )
+            joined = gpd.sjoin(gdf, roads[["geometry","classify_truck"]],
+                               predicate="intersects", how="left")
+            filtered = (joined[joined["classify_truck"].isin(self.TRUCK_CLASSES)]
+                        .drop_duplicates("stop_id"))
 
-        # 4) simulate bookings ----------------------------------------
-        bookings = generate_bookings(self.tmp, "bogota")
-        print(f"Bogotá pipeline complete — {len(filtered)} stops, "
-              f"{len(bookings)} bookings")
-        return bookings
+            out_stops = city_dir / "stops_truck_only.csv"
+            out_stops.write_bytes(filtered.to_csv(index=False).encode())
+
+
+            # Simulate bookings
+            bookings = generate_bookings(city_dir, tag)
+            all_booking_frames.append(bookings)
+
+            print(f"{code.upper()}: {len(filtered)} stops, "
+                  f"{len(bookings)} bookings")
+
+        # Concat all cities → one DataFrame for ETL load()
+        if all_booking_frames:
+            return pd.concat(all_booking_frames, ignore_index=True)
+        raise RuntimeError("No cities processed")
