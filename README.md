@@ -67,8 +67,7 @@ Our scripts do five things end‑to‑end:
 2. Transform them by keeping stops on roads wide/strong enough for trucks.
 3. Classify those roads into small / medium / large truck size.
 4. Load the results into tidy CSVs for analysis.
-5. Simulate 500 synthetic bookings per city so we can test the platform
-before we have real customers.
+5. Simulate 500 synthetic bookings per city so we can test the platform before we have real customers.
 ```
 ### Folder layout 
 ```
