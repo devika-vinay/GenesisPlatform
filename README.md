@@ -114,6 +114,7 @@ https://docs.docker.com/engine/swarm/secrets/
 1. Drop NewCity.zip or newcountry-latest.osm.pbf in data/raw/<country code>/
 2. Copy pipelines/mx_preprocess.py → new_preprocess.py, adapt logic.
 3. Register in scripts/run_etl.py following existing format
+4. Please see docs/README.md for folder structure and where to place new files
 ```
 
 ### Further reading 
