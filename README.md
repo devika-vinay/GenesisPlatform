@@ -11,6 +11,9 @@ Community‑based freight & moving logistics platform (pilot: Mexico, Costa Rica
     - mx: gtfs.zip | semovi-oaxaca-mx.zip | mexico-latest.osm.pbf
     - co: Bogota1.zip | Bogota2.zip | colombia-latest.osm.pbf
     - cr: CR1.zip | CR2.zip | costa-rica-latest.osm.pbf
+4. Create an account on https://openrouteservice.org/dev/#/api-docs
+    - Copy API key from https://account.heigit.org/manage/key under "Basic Key"
+    - Paste the API key into .env file like so: ORS_API_KEY=<Paste value here>
 
 ## 2. Run pipeline
 1. Start Docker Desktop 
@@ -73,7 +76,7 @@ Our scripts do five things end‑to‑end:
 2. Transform them by keeping stops on roads wide/strong enough for trucks.
 3. Classify those roads into small / medium / large truck size.
 4. Load the results into tidy CSVs for analysis.
-5. Simulate 500 synthetic bookings per city so we can test the platform before we have real customers.
+5. Simulate 100 synthetic bookings per city so we can test the platform before we have real customers.
 ```
 
 ### Folder Layout
