@@ -33,6 +33,11 @@ Community‑based freight & moving logistics platform (pilot: Mexico, Costa Rica
 7. Run specific countries 
     - COUNTRY=mx docker compose up genesis
 
+8. If there are errors building the image, try clearing cache using these steps in order
+    - docker compose down
+    - docker builder prune -a
+    - docker system prune -a --volumes (more aggressive cache removal)
+
 ## 3. Git Workflow
 1. Get latest changes from github (run git commands on git bash)
     - git pull origin main
