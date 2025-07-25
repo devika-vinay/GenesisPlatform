@@ -7,17 +7,18 @@ Community‑based freight & moving logistics platform (pilot: Mexico, Costa Rica
 ### Prerequisites (once per machine)
 1. Git
 2. Docker Desktop
-3. Raw data files:
-    - mx: gtfs.zip | semovi-oaxaca-mx.zip
+3. Raw data files (place under respective folders of countries in data/raw)
+    - mx: gtfs.zip | semovi-oaxaca-mx.zip | mexico-latest.osm.pbf
     - co: Bogota1.zip | Bogota2.zip | colombia-latest.osm.pbf
+    - cr: CR1.zip | CR2.zip | costa-rica-latest.osm.pbf
 
 ## 2. Run pipeline
 1. Start Docker Desktop 
 
-2. Clone repository
+2. Clone repository (run on git bash)
     - https://github.com/devika-vinay/GenesisPlatform.git
 
-3. Stop & remove any previous containers/images 
+3. Stop & remove any previous containers/images (navigate to GenesisPlatform folder on CMD and run)
     - docker compose down --remove-orphans --volumes
 
 4. Build the genesis image from scratch 
@@ -33,7 +34,7 @@ Community‑based freight & moving logistics platform (pilot: Mexico, Costa Rica
     - COUNTRY=mx docker compose up genesis
 
 ## 3. Git Workflow
-1. Get latest changes from github
+1. Get latest changes from github (run git commands on git bash)
     - git pull origin main
 
 2. Create a feature branch
