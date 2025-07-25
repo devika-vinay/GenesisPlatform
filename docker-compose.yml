@@ -5,5 +5,4 @@ services:
       dockerfile: apps/worker/Dockerfile
     volumes:
       - ./data:/app/data
-    environment:
-      COUNTRY: ""          # "" = run all, or set to mx / cr
+    env_file: .env # mounts ORS_API_KEY into the container

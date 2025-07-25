@@ -1,10 +1,16 @@
-# core
+# Core
 numpy==1.26.4
 pandas==2.2.2
 fastapi==0.111.0
 uvicorn[standard]==0.30.0
 
-# Colombia preprocessing
+# HTTP client for OpenRouteService 
+requests==2.31.0
+
+# To maintain secrets locally
+python-dotenv==1.0.1
+
+# Preprocessing
 pyrosm==0.6.2
 geopandas==0.14.4
 shapely==2.0.1
