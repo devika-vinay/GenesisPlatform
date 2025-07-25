@@ -84,7 +84,7 @@ class CostaRicaPipeline(ETLPipeline):
             stops_files = list(city_dir.rglob("**/stops.txt")) + \
                           list(city_dir.rglob("**/stops-*.txt"))
             if not stops_files:
-                print(f"{code.upper()}: no stops.txt – skipped")
+                print(f"{code.upper()}: no stops.txt – skipped", flush=True)
                 continue
             
             df = pd.concat(map(pd.read_csv, stops_files), ignore_index=True)
@@ -161,7 +161,7 @@ class CostaRicaPipeline(ETLPipeline):
             all_booking_frames.append(bookings)
 
             print(f"{code.upper()}: {len(filtered)} stops, "
-                  f"{len(bookings)} bookings")
+                  f"{len(bookings)} bookings", flush=True)
 
         # 6) return combined DataFrame to load()
         if all_booking_frames:

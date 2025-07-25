@@ -37,6 +37,7 @@ ENV PYTHONPATH=/app
 
 # ---------- Copy wrapper entry‑point ---------------------------------
 # This tiny shell script decides which file to run
+ENV PYTHONUNBUFFERED=1
 COPY apps/worker/entrypoint.sh /usr/local/bin/etl-entrypoint
 RUN chmod +x /usr/local/bin/etl-entrypoint
 

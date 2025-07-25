@@ -13,6 +13,9 @@ venv/
 .idea/
 .vscode/
 
+# Secrets
+.env
+
 # Data inputs
 data/raw/**/*.zip
 data/raw/**/*.osm.pbf

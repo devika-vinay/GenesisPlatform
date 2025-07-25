@@ -29,7 +29,7 @@ def main() -> None:
 
     pipeline = PIPELINES[args.country]  
     pipeline.run()                      # E‑T‑L in one call
-    print(f"Finished {args.country} pipeline")  # friendly log line
+    print(f"Finished {args.country} pipeline", flush=True) 
 
 
 if __name__ == "__main__":

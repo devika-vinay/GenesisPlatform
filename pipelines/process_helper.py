@@ -25,7 +25,7 @@ def extract_gtfs_feeds(feeds: dict[str, str], raw_root: Path, work_root: Path) -
         city_dir = work_root / city             # where we will unzip
 
         if not zip_path.exists():
-            print(f"{zip_name} not found in {raw_root}")
+            print(f"{zip_name} not found in {raw_root}", flush=True)
             continue
 
         city_dir.mkdir(exist_ok=True)
@@ -39,7 +39,7 @@ def extract_gtfs_feeds(feeds: dict[str, str], raw_root: Path, work_root: Path) -
 
 MOVE_SIZES = ["small", "medium", "large"]          
 TRUCK_PRIORITY = ["small", "medium", "large"]      
-NUM_BOOKINGS = 500 # Number of synthetic bookings to be created
+NUM_BOOKINGS = 100 # Number of synthetic bookings to be created
 
 
 def _least_restrictive(pickup_cls: str, drop_cls: str) -> str:
@@ -66,9 +66,12 @@ def generate_bookings(city_dir: Path, city_tag: str,
         stop_to_cls = dict(zip(df_stops["stop_id"], df_stops["classify_truck"]))
     else:
         stop_to_cls = {sid: "small" for sid in stop_ids}
+    
+    stop_to_lat = dict(zip(df_stops["stop_id"], df_stops["stop_lat"]))
+    stop_to_lon = dict(zip(df_stops["stop_id"], df_stops["stop_lon"]))
 
     if len(stop_ids) < 2:
-        print(f"{city_tag.upper()}: Not enough stops to generate bookings.")
+        print(f"{city_tag.upper()}: Not enough stops to generate bookings.", flush=True)
         return pd.DataFrame()
 
     # Random timestamp helper 
@@ -97,6 +100,10 @@ def generate_bookings(city_dir: Path, city_tag: str,
             "pickup_truck_type":  pickup_cls,
             "dropoff_truck_type": dropoff_cls,
             "required_truck_type": _least_restrictive(pickup_cls, dropoff_cls),
+            "pickup_lat":  stop_to_lat[pickup],
+            "pickup_lon":  stop_to_lon[pickup],
+            "dropoff_lat": stop_to_lat[dropoff],
+            "dropoff_lon": stop_to_lon[dropoff],
             "city": city_tag,
         }
         bookings.append(booking)
@@ -105,5 +112,5 @@ def generate_bookings(city_dir: Path, city_tag: str,
     out_csv = city_dir / "booking_requests.csv"
     pd.DataFrame(bookings).to_csv(out_csv, index=False)
 
-    print(f"{city_tag.upper()}: Created {len(bookings)} bookings → {out_csv}")
+    print(f"{city_tag.upper()}: Created {len(bookings)} bookings → {out_csv}", flush=True)
     return pd.DataFrame(bookings)
