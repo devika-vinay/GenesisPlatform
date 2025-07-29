@@ -5,4 +5,7 @@ services:
       dockerfile: apps/worker/Dockerfile
     volumes:
       - ./data:/app/data
-    env_file: .env # mounts ORS_API_KEY into the container
+    #env_file: .env # mounts ORS_API_KEY into the container
+    environment:
+      - COUNTRY=${COUNTRY}
+      - ORS_API_KEY=${ORS_API_KEY}
