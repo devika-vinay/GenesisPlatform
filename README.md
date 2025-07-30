@@ -55,7 +55,7 @@ Community‑based freight & moving logistics platform (pilot: Mexico, Costa Rica
     - git commit -m "Meaningful message"
 
 5. Push changes
-    - git push origin <branch name>
+    - git push origin "your branch name"
 
 6. Open a Pull Request on GitHub → team reviews → Merge.
     - main is protected: nobody can push directly without a PR + at least one approval.
