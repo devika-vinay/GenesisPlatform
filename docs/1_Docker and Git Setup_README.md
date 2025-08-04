@@ -37,6 +37,7 @@ Community‑based freight & moving logistics platform (pilot: Mexico, Costa Rica
     - COUNTRY=mx docker compose up genesis
 
 8. If there are errors building the image, try clearing cache using these steps in order
+    - docker system df  (Check system cache)
     - docker compose down
     - docker builder prune -a
     - docker system prune -a --volumes (more aggressive cache removal)
