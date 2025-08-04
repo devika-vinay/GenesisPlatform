@@ -24,7 +24,15 @@ def _enrich_file(csv_path: Path) -> None:
     for _, row in df.iterrows():
         start = (row["pickup_lon"], row["pickup_lat"])
         end   = (row["dropoff_lon"], row["dropoff_lat"])
-        res   = ORS.get_route(start, end)
+
+        try:
+            res = ORS.get_route(start, end)
+        except Exception as exc:
+            # Log network error during API call, 400/429 response, etc.
+            print(f"Route failed {start}->{end}: {exc}", flush=True)
+            distances.append("")   # or None
+            durations.append("")
+            continue
 
         distances.append(res.get("distance_m", ""))
         durations.append(res.get("duration_s", ""))
