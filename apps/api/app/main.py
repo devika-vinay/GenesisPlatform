@@ -3,13 +3,20 @@
 """
 
 import os
+from scripts.driver_seed_generator import driver_seed
 from scripts.run_etl import PIPELINES           
 from services.compute_distance import enrich_country
 
 def run_single(country: str):
-    PIPELINES[country].run() # Calling preprocess files of each country
+     # 1) Build / refresh the driver sample 
+    driver_seed()
+
+    # 2) Run filtering logic for truck stops (preprocessing) 
+    PIPELINES[country].run()
+
+    # 3) Compute distances calling ORS wrapper 
     if os.getenv("ORS_API_KEY"):
-        enrich_country(country) # Calling compute_distance.py to compute distances between stops
+        enrich_country(country)
 
 def run_all():
     for cc in PIPELINES.keys():
