@@ -9,7 +9,7 @@ This script assumes that the input DataFrame `df` already contains:
 import pandas as pd
 import numpy as np
 
-input_path = Path("csv_path")
+input_path = Path(f"data/processed/{cc}.csv")  # For cc in (mx, co, cr, …)
 df = pd.read_csv(input_path)  #Load the preprocessed CSV containing stop-to-stop distances
 
 
