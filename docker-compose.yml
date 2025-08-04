@@ -6,4 +6,3 @@ services:
     volumes:
       - ./data:/app/data
     env_file: .env # mounts ORS_API_KEY into the container
-    
