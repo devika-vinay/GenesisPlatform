@@ -5,7 +5,7 @@ Community‑based freight & moving logistics platform (pilot: Mexico, Costa Rica
 ## 1. Set‑up
 
 ### Prerequisites (once per machine)
-1. Git
+1. Git Bash
 2. Docker Desktop
 3. Raw data files (place under respective folders of countries in data/raw)
     - mx: gtfs.zip | semovi-oaxaca-mx.zip | mexico-latest.osm.pbf
@@ -13,6 +13,7 @@ Community‑based freight & moving logistics platform (pilot: Mexico, Costa Rica
     - cr: CR1.zip | CR2.zip | costa-rica-latest.osm.pbf
 4. Create an account on https://openrouteservice.org/dev/#/api-docs
     - Copy API key from https://account.heigit.org/manage/key under "Basic Key"
+    - Create a new file under GenesisPlatform and name it ".env"
     - Paste the API key into .env file like so: ORS_API_KEY=<Paste value here>
 
 ## 2. Run pipeline
