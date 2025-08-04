@@ -17,7 +17,11 @@ shapely==2.0.1
 fiona==1.9.6
 pyproj==3.6.1
 osmnx==1.8.1
-pyarrow==16.1.0        
+pyarrow==16.1.0  
+
+# Driver matching
+haversine==2.9.0
+scipy==1.13.0
 
 # Misc
 SQLAlchemy==2.0.30
