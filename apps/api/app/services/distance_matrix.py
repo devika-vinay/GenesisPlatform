@@ -1,26 +1,31 @@
 import pandas as pd
 from pathlib import Path
+from scripts.run_etl import PIPELINES
 
-def generate_distance_matrix(df: pd.DataFrame) -> pd.DataFrame:
-    # Convert meters to km if needed
-    if 'distance_m' in df.columns:
-        df['distance_km'] = df['distance_m'] / 1000.0
-    return df.pivot(index='pickup_stop_id', columns='dropoff_stop_id', values='distance_km')
-
-if __name__ == "__main__":
+def generate_distance_matrix(country:str) -> None:
     processed_dir = Path("data/processed")
-    csv_files = [f for f in processed_dir.glob("*.csv") if f.stem in ["co", "mx", "cr"]]
+    csv_path = processed_dir / f"{country}.csv"          
 
-    if not csv_files:
-        print("No processed CSV files found in data/processed/.")
-        exit()
+    if not csv_path.exists():                            
+        raise FileNotFoundError(f"Expected file not found: {csv_path}")
 
-    for csv_file in csv_files:
-        print(f"\n=== Generating matrix for {csv_file.name} ===")
-        df = pd.read_csv(csv_file)
+    df = pd.read_csv(csv_path)
 
-        matrix_df = generate_distance_matrix(df)
-        matrix_path = processed_dir / f"{csv_file.stem}_distance_matrix.csv"
-        matrix_df.to_csv(matrix_path, float_format="%.3f")
+    # Convert metres ➔ kilometres if present
+    if "distance_m" in df.columns:
+        df["distance_km"] = df["distance_m"] / 1_000
+        value_col = "distance_km"
+    else:
+        value_col = "distance_m"
 
-        print(f"Saved distance matrix → {matrix_path}")
+    matrix_df = df.pivot(
+        index="pickup_stop_id",
+        columns="dropoff_stop_id",
+        values=value_col,
+    )
+
+    out_path = processed_dir / f"{country}_distance_matrix.csv"
+    matrix_df.to_csv(out_path, float_format="%.3f")
+    print(f"Distance matrix saved → {out_path}", flush=True)
+
+    
