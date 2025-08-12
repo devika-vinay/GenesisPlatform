@@ -44,12 +44,45 @@ class OpenRouteServiceWrapper:
             try:
                 r = requests.post(self.base_url, headers=headers, json=body, timeout=self.timeout)
                 if r.status_code == 200:
-                    summary = r.json()["routes"][0]["summary"]
-                    return {"distance_m": summary["distance"], "duration_s": summary["duration"]}
-                else:
-                    return {"error": f"{r.status_code}: {r.text}"}
+                    data = r.json()
+                    summary, segments = {}, []
+                    if isinstance(data, dict) and data.get("routes"):
+                        route = data["routes"][0] or {}
+                        summary  = route.get("summary")  or {}
+                        segments = route.get("segments") or []
+                    elif isinstance(data, dict) and data.get("features"):
+                        props    = (data["features"][0] or {}).get("properties") or {}
+                        summary  = props.get("summary")  or {}
+                        segments = props.get("segments") or []
+
+                    dist = summary.get("distance")
+                    dur  = summary.get("duration")
+
+                    # Fallback: sum segment distances/durations if summary is incomplete
+                    if segments:
+                        if dist is None:
+                            dist = sum((s or {}).get("distance", 0.0) for s in segments)
+                        if dur is None:
+                            dur = sum((s or {}).get("duration", 0.0) for s in segments)
+
+                    # If still missing, *don’t* raise—signal the caller to leave blanks
+                    if dist is None or dur is None:
+                        return {"error": "missing distance/duration in ORS payload"}
+
+                    return {"distance_m": float(dist), "duration_s": float(dur)}
+
+                # Retry on 429 or transient 5xx
+                if r.status_code == 429 or 500 <= r.status_code < 600:
+                    if attempt < self.retries - 1:
+                        time.sleep(2 * (attempt + 1))  # 2s, 4s, …
+                        continue
+
+                # Non-retryable or retries exhausted
+                return {"error": f"{r.status_code}: {r.text}"}
+
             except requests.RequestException as exc:
                 if attempt < self.retries - 1:
                     time.sleep(2)
-                else:
-                    return {"error": f"Request failed: {exc}"}
+                    continue
+                return {"error": f"Request failed: {exc}"}
+
