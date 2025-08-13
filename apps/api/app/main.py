@@ -6,7 +6,7 @@ import os
 from scripts.driver_seed_generator import driver_seed
 from scripts.run_etl import PIPELINES           
 from services.compute_distance import enrich_country
-from services.distance_matrix import generate_distance_matrix
+from services.distance_matrix import build_matrices
 
 def run_single(country: str):
      # 1) Build / refresh the driver sample 
@@ -20,7 +20,7 @@ def run_single(country: str):
         enrich_country(country)
     
     # 4) Compute distance matrix
-    generate_distance_matrix(country)
+    build_matrices(country, agg="median", fill="none")
 
 def run_all():
     for cc in PIPELINES.keys():
