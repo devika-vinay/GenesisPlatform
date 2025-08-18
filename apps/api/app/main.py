@@ -9,6 +9,7 @@ from services.compute_distance import enrich_country
 from scripts.trip_seed_generator import generate_trip_logs
 from services.driver_matching import match_trips
 
+from services.distance_matrix import build_matrices
 
 def run_single(country: str):
      # 1) Build / refresh the driver sample 
@@ -21,10 +22,13 @@ def run_single(country: str):
     if os.getenv("ORS_API_KEY"):
         enrich_country(country)
     
-    # 4) Build trip logs sample
+    # 4) Compute distance matrix
+    build_matrices(country, agg="median", fill="none")
+
+    # 5) Build trip logs sample
     generate_trip_logs(country)
 
-    # 5) Match drivers to trips
+    # 6) Match drivers to trips
     match_trips(country)
 
 def run_all():

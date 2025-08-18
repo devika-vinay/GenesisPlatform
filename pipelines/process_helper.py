@@ -39,7 +39,7 @@ def extract_gtfs_feeds(feeds: dict[str, str], raw_root: Path, work_root: Path) -
 
 MOVE_SIZES = ["small", "medium", "large"]          
 TRUCK_PRIORITY = ["small", "medium", "large"]      
-NUM_BOOKINGS = 10 # Number of synthetic bookings to be created
+NUM_BOOKINGS = 50 # Number of synthetic bookings to be created
 
 
 def _least_restrictive(pickup_cls: str, drop_cls: str) -> str:

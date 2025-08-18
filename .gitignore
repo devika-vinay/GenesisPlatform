@@ -29,3 +29,6 @@ data/processed/
 
 # Notebooks
 *.ipynb_checkpoints/
+
+# Dev container for debugging the code in the docker image.
+.devcontainer/ 
