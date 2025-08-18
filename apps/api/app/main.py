@@ -6,6 +6,9 @@ import os
 from scripts.driver_seed_generator import driver_seed
 from scripts.run_etl import PIPELINES           
 from services.compute_distance import enrich_country
+from scripts.trip_seed_generator import generate_trip_logs
+from services.driver_matching import match_trips
+
 from services.distance_matrix import build_matrices
 
 def run_single(country: str):
@@ -21,6 +24,12 @@ def run_single(country: str):
     
     # 4) Compute distance matrix
     build_matrices(country, agg="median", fill="none")
+
+    # 5) Build trip logs sample
+    generate_trip_logs(country)
+
+    # 6) Match drivers to trips
+    match_trips(country)
 
 def run_all():
     for cc in PIPELINES.keys():
