@@ -81,7 +81,7 @@ def generate_trip_logs(country: str) -> Path:
                     "status"      : status,
                     "vehicle_type": row.vehicle_type,
                     "capacity"    : row.capacity,
-                    "cargo_size"  : bk.move_size,
+                    "move_size"  : bk.move_size,
                 })
 
         out_fp = data_dir / f"{country}_mock_trip_logs.csv"

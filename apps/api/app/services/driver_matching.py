@@ -42,7 +42,7 @@ def match_trips(country: str, booking=None):
         bookings = bookings.reset_index(drop=True)
 
         # Sanity check: ensure required columns exist
-        required = {"booking_id", "cargo_size", "pickup_lat", "pickup_lon"}
+        required = {"booking_id", "move_size", "pickup_lat", "pickup_lon"}
         missing = required - set(bookings.columns)
         if missing:
             raise ValueError(f"Missing required fields in single booking: {sorted(missing)}")
@@ -53,7 +53,7 @@ def match_trips(country: str, booking=None):
     for ti, t in bookings.iterrows():        # ti is the row-position in 'trips'
         for di, d in drivers.iterrows():  # di is the row-position in 'drivers'
             # Capacity check: driver's vehicle must be >= trip's cargo size
-            if CAP_RANK[d.capacity] < CAP_RANK[t.cargo_size]:
+            if CAP_RANK[d.capacity] < CAP_RANK[t.move_size]:
                 continue
             # Proximity check: driver's base must be within 50 km of pickup
             dist_km = haversine(
@@ -85,7 +85,7 @@ def match_trips(country: str, booking=None):
     # This discards any forced matches to infeasible (1e6) slots.
     assignments = [
         {
-            "booking_id":   bookings.loc[r, "booking_id"],
+            "trip_id":   bookings.loc[r, "booking_id"],
             "driver_id": drivers.loc[c, "driver_id"]
         }
         for r, c in zip(row_idx, col_idx) if cost[r, c] < 1e5
