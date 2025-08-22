@@ -1,17 +1,17 @@
-# 📦 Data Processed Folder – Driver Dataset & Mock Trip Logs
+# Data Processed Folder – Driver Dataset & Mock Trip Logs
 
 This folder contains the **sample driver dataset** and will store the **mock trip logs** for MX, CO, and CR.
 
 ---
 
-## 🚖 1. Sample Driver Dataset
+## 1. Sample Driver Dataset
 
 **File:** `sample_drivers.csv`  
 **Purpose:** Synthetic driver dataset to be used for generating all mock trip logs during the MVP development phase.
 
 **Do NOT** modify or regenerate this dataset — it must remain consistent across all countries.
 
-### 📂 Schema
+### Schema
 
 | Column Name           | Type   | Example Value       | Description |
 |-----------------------|--------|--------------------|-------------|
@@ -31,7 +31,7 @@ This folder contains the **sample driver dataset** and will store the **mock tri
 
 ---
 
-## 🛣 2. Expected Schema for `mock_trip_logs.csv`
+## 2. Expected Schema for `mock_trip_logs.csv`
 
 This file will be generated separately for each country:
 data/processed/mx_mock_trip_logs.csv
@@ -39,7 +39,7 @@ data/processed/co_mock_trip_logs.csv
 data/processed/cr_mock_trip_logs.csv
 
 
-### 📂 Schema
+### Schema
 
 | Column Name       | Type   | Example Value         | Description |
 |-------------------|--------|----------------------|-------------|
@@ -57,10 +57,10 @@ data/processed/cr_mock_trip_logs.csv
 | `status`          | str    | `completed` / `cancelled` | Trip completion status |
 | `vehicle_type`    | str    | `truck` / `van`      | Vehicle type used for trip |
 | `capacity`        | str    | `small` / `medium` / `large` | Capacity used for trip |
-
+| `move_size`       | str    | `small` / `medium` / `large` | Cargo size as per customer |
 ---
 
-## 📏 Rules for Creation
+### Rules for Creation
 
 1. **Driver Linking:**  
    Each generated trip must link to a `driver_id` from `sample_drivers.csv`.
@@ -82,6 +82,62 @@ data/processed/cr_mock_trip_logs.csv
 
 6. **Realistic Timings:**  
    - Derive `duration_min` from `distance_km` using average urban speed (25–40 km/h).
+
+---
+
+## 3. Trip Matching & Assignments 
+
+### What the matcher consumes
+
+- **From API (single live booking):**
+  - `booking_id` (string, unique)
+  - `move_size` (`small|medium|large`)
+  - `pickup_lat`, `pickup_lon` (floats)
+  - `dropoff_lat`, `dropoff_lon` (optional for matching; useful for logs)
+
+- **From data/processed:**
+  - `sample_drivers.csv` (the roster documented above)
+
+> If no single booking is provided, the matcher can also operate on a batch by reading `data/processed/<cc>.csv` (simulated bookings), then producing an assignments CSV for that country. 
+
+### Feasibility rules 
+
+1. **Capacity gating**  
+   A driver can only take the job if their capacity rank meets or exceeds the booking’s `move_size`.  
+   Rank map: `small → 1`, `medium → 2`, `large → 3`.  
+   Example: a `medium` job (2) can be done by `medium` (2) or `large` (3), but not `small` (1). 
+
+2. **Proximity**  
+   The driver’s **base location** must be **≤ 50 km** from the **pickup** point. Pairs beyond 50 km are discarded. 
+
+### Scoring (who’s “best” among feasible drivers)
+
+For each feasible `(trip, driver)` pair we compute a **score** that prefers:
+- **Closer to pickup** (scaled linearly from 50 km): weight **0.4**
+- Higher **avg_acceptance_rate**: weight **0.3**
+- Higher **avg_completion_rate**: weight **0.3**
+
+Mathematically:  
+`score = (1 - dist_km/50) * 0.4 + acceptance * 0.3 + completion * 0.3`  
+(The solver minimizes cost, so it uses **negative score** as the cost value.) 
+
+### Assignment method
+
+- We build a dense **cost matrix** and solve it with the **Hungarian algorithm** (`linear_sum_assignment`) to select the best unique assignment(s).  
+- Infeasible entries are filled with a **large sentinel cost** (e.g., `1e6`) so they are never chosen. 
+
+### What the matcher outputs
+
+Per country, an **assignments CSV** at:  
+`data/processed/<cc>_assignments.csv`
+
+**Schema (minimum):**
+| Column     | Type | Description |
+|------------|------|-------------|
+| `trip_id`  | str  | The booking/trip ID passed in (must match) |
+| `driver_id`| str  | The chosen driver’s ID from `sample_drivers.csv` |
+
+The API reads this file, finds the row where `trip_id == booking_id`, and then returns the driver’s details to the client. 
 
 ---
 

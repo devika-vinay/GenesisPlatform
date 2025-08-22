@@ -141,35 +141,117 @@ def matrix_from_candidate_ids(
 # ---------------------------------------------------------------------------
 # Geocoding (OpenRouteService)
 # ---------------------------------------------------------------------------
-def geocode(country: str, address: str) -> Tuple[float, float]:
+def geocode(
+    country: str,
+    address: str,
+    focus: Optional[Tuple[float, float]] = None,
+    size: int = 5,
+    prefer_layers: Optional[List[str]] = None,
+    bbox: Optional[Tuple[float, float, float, float]] = None,  # (min_lon, min_lat, max_lon, max_lat)
+) -> Tuple[float, float]:
     """
-    Geocode a free-form address restricted to a given country code ('mx'|'co'|'cr')
-    using OpenRouteService. Requires ORS_API_KEY in the environment.
+    Geocoding with:
+      - multiple candidates (size>1)
+      - layer preference (address/street > locality/region)
+      - proximity bias using a focus point
+      - optional bounding box
 
-    Returns: (lat, lon) as floats.
-    Raises: HTTPException (FastAPI) on config or network errors,
-            or 400 if no result was found in that country.
+    Returns: (lat, lon)
     """
     key = os.getenv("ORS_API_KEY")
     if not key:
         raise HTTPException(status_code=500, detail="ORS_API_KEY not set; cannot geocode")
 
     url = "https://api.openrouteservice.org/geocode/search"
+
     params = {
         "api_key": key,
         "text": address,
         "boundary.country": country.strip().upper(),
-        "size": 1
+        "size": max(1, int(size)),
     }
+    if prefer_layers:
+        params["layers"] = ",".join(prefer_layers)
+    if focus:
+        params["focus.point.lat"] = focus[0]
+        params["focus.point.lon"] = focus[1]
+    if bbox:
+        min_lon, min_lat, max_lon, max_lat = bbox
+        params["boundary.rect.min_lon"] = min_lon
+        params["boundary.rect.min_lat"] = min_lat
+        params["boundary.rect.max_lon"] = max_lon
+        params["boundary.rect.max_lat"] = max_lat
 
     try:
         resp = requests.get(url, params=params, timeout=10)
         resp.raise_for_status()
         data = resp.json()
-        feats = data.get("features", [])
-        if not feats:
-            raise HTTPException(status_code=400, detail=f"Could not geocode '{address}' in {country.upper()}")
-        lon, lat = feats[0]["geometry"]["coordinates"]
-        return float(lat), float(lon)
     except requests.RequestException as e:
         raise HTTPException(status_code=502, detail=f"Geocoding error: {str(e)}")
+
+    feats = data.get("features", [])
+    if not feats:
+        raise HTTPException(status_code=400, detail=f"Could not geocode '{address}' in {country.upper()}")
+
+    # Score each candidate
+    def feat_score(f) -> float:
+        p = f.get("properties", {})
+        conf = float(p.get("confidence", 0.0))
+        layer = p.get("layer", "")
+        acc = p.get("accuracy", "")
+
+        layer_w = {
+            "address": 1.0, "street": 0.9, "venue": 0.85, "neighbourhood": 0.6,
+            "locality": 0.4, "county": 0.3, "region": 0.2, "country": 0.0
+        }.get(layer, 0.2)
+
+        acc_w = {
+            "point": 1.0, "address": 0.9, "street": 0.8, "intersection": 0.75,
+            "centroid": 0.2, "centroid_locality": 0.2, "centroid_region": 0.1
+        }.get(acc, 0.3)
+
+        prox = 0.0
+        if focus:
+            try:
+                lon, lat = f["geometry"]["coordinates"]
+                d_km = haversine((focus[0], focus[1]), (lat, lon))
+                # full credit at 0 km, linearly decays to 0 by 10 km
+                prox = max(0.0, 1.0 - min(d_km, 10.0) / 10.0)
+            except Exception:
+                prox = 0.0
+
+        # weights tuned to strongly prefer precise layers & proximity
+        return (conf * 1.0) + (layer_w * 1.0) + (acc_w * 0.5) + (prox * 0.5)
+
+    best = max(feats, key=feat_score)
+    lon, lat = best["geometry"]["coordinates"]
+    return float(lat), float(lon)
+    
+
+def build_stops(df: pd.DataFrame) -> pd.DataFrame:
+    pu = df[["pickup_stop_id","pickup_lat","pickup_lon"]].rename(
+        columns={"pickup_stop_id":"stop_id","pickup_lat":"lat","pickup_lon":"lon"})
+    do = df[["dropoff_stop_id","dropoff_lat","dropoff_lon"]].rename(
+        columns={"dropoff_stop_id":"stop_id","dropoff_lat":"lat","dropoff_lon":"lon"})
+    stops = pd.concat([pu, do], ignore_index=True).drop_duplicates("stop_id")
+    # ensure types
+    stops["lat"] = stops["lat"].astype(float)
+    stops["lon"] = stops["lon"].astype(float)
+    return stops.reset_index(drop=True)
+
+def nearest_stop(stops: pd.DataFrame, lat: float, lon: float, radii_m=(150, 500, 1500, 5000)):
+    # try progressively wider radii; return (stop_id, distance_m) or (None, None)
+    for R in radii_m:
+        # quick prefilter by bounding box (~1 deg ~ 111km) to avoid computing haversine for everything
+        deg = R / 111_000.0
+        cand = stops[(stops.lat.between(lat - deg, lat + deg)) & (stops.lon.between(lon - deg, lon + deg))].copy()
+        if cand.empty:
+            continue
+        # compute great-circle distance
+        cand["d_m"] = cand.apply(lambda r: haversine((lat, lon), (r.lat, r.lon))*1000.0, axis=1)
+        cand = cand.nsmallest(1, "d_m")
+        if not cand.empty and cand.iloc[0]["d_m"] <= R:
+            r = cand.iloc[0]
+            return str(r["stop_id"]), float(r["d_m"])
+    return None, None
+

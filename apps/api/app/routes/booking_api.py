@@ -11,7 +11,7 @@ from haversine import haversine
 from .api_loaders import (
     SUPPORTED, geocode,
     load_bookings_for_matching, pickup_candidates, dropoff_candidates,
-    load_matrices, matrix_from_candidate_ids
+    load_matrices, matrix_from_candidate_ids, build_stops, nearest_stop
 )
 
 from ..services.driver_matching import match_trips
@@ -39,31 +39,64 @@ def book_and_match(body: MatchIn):
         raise HTTPException(status_code=400, detail=f"country must be one of {sorted(SUPPORTED)}")
 
     # 1) Geocode addresses -> coordinates
-    pu_lat, pu_lon = geocode(cc, body.pickup_address)
-    do_lat, do_lon = geocode(cc, body.dropoff_address)
+    # Prefer high-precision features and multiple candidates; bias dropoff near pickup
+    pu_lat, pu_lon = geocode(
+        cc,
+        body.pickup_address,
+        size=5,
+        prefer_layers=["address", "street", "venue", "neighbourhood", "locality"]
+    )
 
-    # 2) Load country bookings and find separate pickup/dropoff candidates near those coords
+    do_lat, do_lon = geocode(
+        cc,
+        body.dropoff_address,
+        focus=(pu_lat, pu_lon),
+        size=5,
+        prefer_layers=["address", "street", "venue", "neighbourhood", "locality"]
+    )
+
+    # Guard against identical centroid hits: try a stricter requery for dropoff
+    if abs(pu_lat - do_lat) < 1e-6 and abs(pu_lon - do_lon) < 1e-6:
+        do_lat, do_lon = geocode(
+            cc,
+            body.dropoff_address,
+            focus=(pu_lat, pu_lon),
+            size=5,
+            prefer_layers=["address", "street", "venue"]
+        )
+
+    # 2) Load bookings and snap geocoded points to known stops (progressive radii)
     df = load_bookings_for_matching(cc)
-    # tolerance/limits are tunable; start with 150 m & top-10 candidates
-    pu_cands = pickup_candidates(df, pu_lat, pu_lon, tol_m=150.0, k=10)
-    do_cands = dropoff_candidates(df, do_lat, do_lon, tol_m=150.0, k=10)
+    stops = build_stops(df)
 
-    # 3) Try to form a matrix key from candidate stop IDs; else haversine fallback
+    pu_stop_id, pu_snap_m = nearest_stop(stops, pu_lat, pu_lon, radii_m=(150, 500, 1500, 5000))
+    do_stop_id, do_snap_m = nearest_stop(stops, do_lat, do_lon, radii_m=(150, 500, 1500, 5000))
+
+    # Build tiny candidate frames compatible with matrix_from_candidate_ids()
+    if pu_stop_id:
+        pu_cands = pd.DataFrame([{"pickup_stop_id": pu_stop_id, "_pu_km": (pu_snap_m or 0.0) / 1000.0}])
+    else:
+        pu_cands = pd.DataFrame(columns=["pickup_stop_id", "_pu_km"])
+
+    if do_stop_id:
+        do_cands = pd.DataFrame([{"dropoff_stop_id": do_stop_id, "_do_km": (do_snap_m or 0.0) / 1000.0}])
+    else:
+        do_cands = pd.DataFrame(columns=["dropoff_stop_id", "_do_km"])
+
+    # 3) Try matrix; else haversine fallback 
     dist_df, dur_df = load_matrices(cc)
     d_km = t_min = None
     chosen_pu_stop = chosen_do_stop = None
-    if not pu_cands.empty and not do_cands.empty:
-        d_km, t_min, chosen_pu_stop, chosen_do_stop = matrix_from_candidate_ids(
-            dist_df, dur_df, pu_cands, do_cands
-        )
 
-    if d_km is None or t_min is None:
-        # No matrix pair found → fallback to haversine between the geocoded points
+    d_res = matrix_from_candidate_ids(dist_df, dur_df, pu_cands, do_cands)
+    if d_res and d_res[0] is not None:
+        d_km, t_min, chosen_pu_stop, chosen_do_stop = d_res
+        source = "matrix"
+    else:
         d_km = round(haversine((pu_lat, pu_lon), (do_lat, do_lon)), 2)
         t_min = None
         source = "haversine"
-    else:
-        source = "matrix"
+
 
     # 4) Match a driver using your existing matcher (no changes to its logic)
     try:

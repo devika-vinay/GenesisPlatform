@@ -1,1 +1,0 @@
-# GÉNESIS Platform Docs
