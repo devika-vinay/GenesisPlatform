@@ -34,6 +34,8 @@ RUN pip install --upgrade pip && \
 # Add project root to Python module search path so `import pipelines`
 # works no matter where scripts are executed inside the container.
 ENV PYTHONPATH=/app
+ENV PORT=8000
+EXPOSE 8000
 
 # ---------- Copy wrapper entry‑point ---------------------------------
 # This tiny shell script decides which file to run

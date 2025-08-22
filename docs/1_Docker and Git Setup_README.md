@@ -15,6 +15,7 @@ Community‑based freight & moving logistics platform (pilot: Mexico, Costa Rica
     - Copy API key from https://account.heigit.org/manage/key under "Basic Key"
     - Create a new file under GenesisPlatform and name it ".env"
     - Paste the API key into .env file like so: ORS_API_KEY=<Paste value here>
+5. Install Postman Desktop App
 
 ## 2. Run pipeline
 1. Start Docker Desktop 

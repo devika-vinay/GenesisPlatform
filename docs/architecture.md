@@ -1,2 +1,0 @@
-## Architecture
-_TBD_
